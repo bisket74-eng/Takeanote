@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Drawing Pad</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #121214;
+      color: #ffffff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: #1e1e24;
+      border-bottom: 1px solid #2e2e38;
+    }
+    .title {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .header-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-icon {
+      background: #2a2a36;
+      border: 1px solid #3f3f50;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn-icon:active {
+      background: #3f3f52;
+    }
+
+    /* Primary Toolbar directly under top header */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      background: #1a1a22;
+      border-bottom: 1px solid #2e2e38;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .tool-btn {
+      background: #2a2a36;
+      border: 1px solid #3f3f50;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .tool-btn.active {
+      background: #2563eb;
+      border-color: #3b82f6;
+    }
+    .slider-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #ccc;
+    }
+    .slider-group input {
+      width: 80px;
+    }
+    .color-picker-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      cursor: pointer;
+    }
+    .color-input {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* Drawing Canvas Container */
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      background: #0d0d11;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    /* Draggable, Resizable Text Box */
+    .text-box-element {
+      position: absolute;
+      min-width: 130px;
+      min-height: 60px;
+      border: 2px dashed #2563eb;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      touch-action: none;
+      z-index: 10;
+    }
+    .text-box-header {
+      height: 22px;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 6px;
+      border-radius: 4px 4px 0 0;
+      cursor: move;
+    }
+    .text-box-close {
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .text-box-content {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-family: inherit;
+      font-size: 18px;
+      color: inherit;
+      resize: none;
+      padding: 6px;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .resizer {
+      width: 14px;
+      height: 14px;
+      background: #2563eb;
+      position: absolute;
+      right: -7px;
+      bottom: -7px;
+      border-radius: 50%;
+      cursor: se-resize;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="title">Drawing Pad</div>
+    <div class="header-actions">
+      <button class="btn-icon" id="undoBtn" title="Undo">↩️</button>
+      <button class="btn-icon" id="redoBtn" title="Redo">↪️</button>
+      <button class="btn-icon" id="clearBtn" title="Clear Canvas">🗑️</button>
+      <button class="btn-icon" id="saveBtn" title="Download Image">💾 Save</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button class="tool-btn active" id="penBtn">✏️ Pen</button>
+    <button class="tool-btn" id="eraserBtn">🧹 Eraser</button>
+    <button class="tool-btn" id="textBtn">🅰️ Add Text</button>
+
+    <div class="slider-group">
+      <span>Thick:</span>
+      <input type="range" id="sizeSlider" min="1" max="50" value="5">
+      <span id="sizeVal">5px</span>
+    </div>
+
+    <div class="color-picker-box">
+      <div class="color-swatch" id="colorSwatch" style="background:#ffffff;"></div>
+      <input type="color" class="color-input" id="colorPicker" value="#ffffff">
+    </div>
+  </div>
+
+  <div class="canvas-container" id="canvasContainer">
+    <canvas id="paintCanvas"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('paintCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+
+    let isDrawing = false;
+    let currentTool = 'pen';
+    let currentColor = '#ffffff';
+    let currentSize = 5;
+
+    let undoStack = [];
+    let redoStack = [];
+
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (undoStack.length > 0) {
+        restoreState(undoStack[undoStack.length - 1]);
+      } else {
+        saveState();
+      }
+    }
+
+    function saveState() {
+      if (undoStack.length > 25) undoStack.shift();
+      undoStack.push(canvas.toDataURL());
+      redoStack = [];
+    }
+
+    function restoreState(dataUrl) {
+      let img = new Image();
+      img.src = dataUrl;
+      img.onload = () => {
+        const dpr = window.devicePixelRatio || 1;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width / dpr, canvas.height / dpr);
+      };
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isDrawing = true;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isDrawing) return;
+      const pos = getPos(e);
+      ctx.strokeStyle = currentTool === 'eraser' ? '#0d0d11' : currentColor;
+      ctx.lineWidth = currentSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    });
+
+    canvas.addEventListener('pointerup', () => {
+      if (isDrawing) {
+        isDrawing = false;
+        ctx.closePath();
+        saveState();
+      }
+    });
+
+    canvas.addEventListener('pointerleave', () => {
+      if (isDrawing) {
+        isDrawing = false;
+        ctx.closePath();
+        saveState();
+      }
+    });
+
+    // Controls
+    const penBtn = document.getElementById('penBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const textBtn = document.getElementById('textBtn');
+    const sizeSlider = document.getElementById('sizeSlider');
+    const sizeVal = document.getElementById('sizeVal');
+    const colorPicker = document.getElementById('colorPicker');
+    const colorSwatch = document.getElementById('colorSwatch');
+
+    penBtn.onclick = () => {
+      currentTool = 'pen';
+      penBtn.classList.add('active');
+      eraserBtn.classList.remove('active');
+    };
+
+    eraserBtn.onclick = () => {
+      currentTool = 'eraser';
+      eraserBtn.classList.add('active');
+      penBtn.classList.remove('active');
+    };
+
+    sizeSlider.oninput = (e) => {
+      currentSize = e.target.value;
+      sizeVal.innerText = currentSize + 'px';
+    };
+
+    colorPicker.oninput = (e) => {
+      currentColor = e.target.value;
+      colorSwatch.style.background = currentColor;
+    };
+
+    document.getElementById('undoBtn').onclick = () => {
+      if (undoStack.length > 1) {
+        redoStack.push(undoStack.pop());
+        restoreState(undoStack[undoStack.length - 1]);
+      }
+    };
+
+    document.getElementById('redoBtn').onclick = () => {
+      if (redoStack.length > 0) {
+        let state = redoStack.pop();
+        undoStack.push(state);
+        restoreState(state);
+      }
+    };
+
+    document.getElementById('clearBtn').onclick = () => {
+      const dpr = window.devicePixelRatio || 1;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      document.querySelectorAll('.text-box-element').forEach(el => el.remove());
+      saveState();
+    };
+
+    // Interactive Draggable & Resizable Text Box
+    textBtn.onclick = () => {
+      createTextBox();
+    };
+
+    function createTextBox() {
+      const el = document.createElement('div');
+      el.className = 'text-box-element';
+      el.style.left = '40px';
+      el.style.top = '40px';
+      el.style.color = currentColor;
+
+      el.innerHTML = `
+        <div class="text-box-header">
+          <span>⋮ Drag</span>
+          <span class="text-box-close">✕</span>
+        </div>
+        <textarea class="text-box-content" placeholder="Type text here..."></textarea>
+        <div class="resizer"></div>
+      `;
+
+      container.appendChild(el);
+
+      const closeBtn = el.querySelector('.text-box-close');
+      const textarea = el.querySelector('.text-box-content');
+      const header = el.querySelector('.text-box-header');
+      const resizer = el.querySelector('.resizer');
+
+      closeBtn.onclick = () => el.remove();
+
+      // Dragging logic
+      let isDragging = false, startX, startY, origX, origY;
+      header.addEventListener('pointerdown', (e) => {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        origX = el.offsetLeft;
+        origY = el.offsetTop;
+        header.setPointerCapture(e.pointerId);
+      });
+
+      header.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        let dx = e.clientX - startX;
+        let dy = e.clientY - startY;
+        el.style.left = (origX + dx) + 'px';
+        el.style.top = (origY + dy) + 'px';
+      });
+
+      header.addEventListener('pointerup', () => isDragging = false);
+
+      // Resizing logic
+      let isResizing = false, rStartX, rStartY, startW, startH;
+      resizer.addEventListener('pointerdown', (e) => {
+        isResizing = true;
+        e.stopPropagation();
+        rStartX = e.clientX;
+        rStartY = e.clientY;
+        startW = el.offsetWidth;
+        startH = el.offsetHeight;
+        resizer.setPointerCapture(e.pointerId);
+      });
+
+      resizer.addEventListener('pointermove', (e) => {
+        if (!isResizing) return;
+        let nw = startW + (e.clientX - rStartX);
+        let nh = startH + (e.clientY - rStartY);
+        if (nw > 90) el.style.width = nw + 'px';
+        if (nh > 40) el.style.height = nh + 'px';
+      });
+
+      resizer.addEventListener('pointerup', () => isResizing = false);
+
+      textarea.focus();
+    }
+
+    // Export PNG
+    document.getElementById('saveBtn').onclick = () => {
+      let exportCanvas = document.createElement('canvas');
+      exportCanvas.width = canvas.width;
+      exportCanvas.height = canvas.height;
+      let eCtx = exportCanvas.getContext('2d');
+
+      eCtx.fillStyle = '#0d0d11';
+      eCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+      eCtx.drawImage(canvas, 0, 0);
+
+      const dpr = window.devicePixelRatio || 1;
+      document.querySelectorAll('.text-box-element').forEach(box => {
+        const rect = box.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const x = (rect.left - containerRect.left) * dpr;
+        const y = (rect.top - containerRect.top + 22) * dpr;
+        const txt = box.querySelector('textarea').value;
+        const color = box.style.color;
+
+        eCtx.fillStyle = color;
+        eCtx.font = `${18 * dpr}px sans-serif`;
+        eCtx.textBaseline = 'top';
+
+        let lines = txt.split('\n');
+        lines.forEach((line, i) => {
+          eCtx.fillText(line, x + (6 * dpr), y + (i * 22 * dpr));
+        });
+      });
+
+      let link = document.createElement('a');
+      link.download = 'drawing.png';
+      link.href = exportCanvas.toDataURL('image/png');
+      link.click();
+    };
+
+    setTimeout(resizeCanvas, 100);
+  </script>
+</body>
+</html>
